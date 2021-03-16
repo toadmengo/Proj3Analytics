@@ -1,0 +1,6 @@
+"0","# save data"
+"0","a <- subset(rf_results, k == 2)"
+"0","b <- subset(rf_results, k == 5)"
+"0","c <- subset(rf_results, k == 10)"
+"0","results <- cbind(a$MSE, b$MSE, c$MSE)"
+"0","colnames(results) <- c(2, 5, 10)"

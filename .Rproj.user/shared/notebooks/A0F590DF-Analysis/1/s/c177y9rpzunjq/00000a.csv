@@ -1,0 +1,6 @@
+"0","library(tidyr)"
+"0","library(ggplot2)"
+"0","# setup function and data"
+"0","source(""../Code/my_rf_cv.R"")"
+"0","my_gapminder <- read.csv(""../Data/my_gapminder.csv"")"
+"0","my_penguins <- read.csv(""../Data/my_penguins.csv"")"

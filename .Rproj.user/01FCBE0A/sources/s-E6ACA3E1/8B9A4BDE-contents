@@ -1,0 +1,188 @@
+---
+title: "Project 3: Proj3Package Tutorial"
+author: "Todd Meng"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Proj3Package Tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+### Installing Package
+
+This package contains useful statistical functions for t-tests, linear regression, K nearest neighbors cross-validation, and random forest cross-validation. It also contains the data my_gapminder. To install from github, use the devtools package.
+
+```{r, eval=FALSE}
+library(devtools)
+# basic install
+install_github("toadmengo/Proj3Package")
+# install with vignette
+install_github("toadmengo/Proj3Package", 
+               build_vignette = TRUE, build_opts = c())
+```
+
+```{r setup}
+library(Proj3Package)
+```
+
+### my_t.test
+
+`my_t.test` runs a t-test on data. It has parameters: `x` is the numeric data, `alternative` is a character input that signifies the type of t-test, and `mu` is the null hypothesis value. `alternative` must be either "greater", "less", or "two.sided". 
+
+The following demonstrates a two-sided t-test on the `my_gapminder` `lifeExp` data. 
+This tests the hypothesis that mu ≠ 60.
+
+```{r}
+x <- my_gapminder$lifeExp
+# two sided test
+my_t.test(x, "two.sided", 60)
+```
+
+Using α = 0.05 as the cut-off p-value, we would fail to reject the null hypothesis, as the t-test yields a p-value greater than α. There isn't enough evidence to suggest that mean life expectancy is greater than 60.
+
+We can test for mu < 60.
+
+```{r}
+# one-sided less-than test
+my_t.test(x, "less", 60)
+```
+
+Using α = 0.05 as the cut-off p-value, we would reject the null hypothesis, as the t-test yields a p-value less than α. There is strong evidence to suggest that the mean life expectancy is less than 60.
+
+We can test mu > 60.
+
+```{r}
+# one-sided less-than test
+my_t.test(x, "greater", 60)
+```
+
+Using α = 0.05 as the cut-off p-value, we would fail to reject the null hypothesis, as the t-test yields a p-value greater than α. There isn't enough evidence to suggest that mean life expectancy is not equal to 60.
+
+### my_lm
+
+`my_lm` fits a linear regression model. It takes in `lm_form`, a formula, and `lm_data`, the data to be fitted. It returns the coefficients of the fitted linear function, the standard errors, the t-values, and the p-values.
+
+To demonstrate, we'll fit a linear model using `my_gapminder`, with `lifeExp` as response variable and `gdpPercap` and `continent` as explanatory variables.
+
+```{r}
+# fit a linear model
+x <- my_lm(lifeExp ~ gdpPercap + continent, my_gapminder)
+x
+```
+
+This gives us the estimates for the coefficients for each explanatory variable. Looking at the `gdpPercap` variable, we see that the linear model estimates that every dollar increase in GDP per-capita correlates with an increase of `r round(x[2], digits = 6)` in life expectancy.
+
+We can also analyze the p-values. Looking at the `gdpPercap` variable, the null hypothesis is that the coefficient ß = 0, and the alternative is ß ≠ 0. Using α = 0.05 as the cut-off p-value, we would reject the null hypothesis in favor of the alternative hypothesis, as the p-value is much smaller than α. There is strong evidence to indicate that there is a correlation between GDP per-capita and life expectancy.
+
+Additionally, we can plot the Actual vs Fitted values.
+
+```{r}
+library(ggplot2)
+# get the fitted values
+fitted <- predict(lm(lifeExp ~ gdpPercap + continent, my_gapminder), 
+                 my_gapminder)
+# get the actual values
+actual <- my_gapminder$lifeExp
+dat <- cbind(fitted, actual)
+# plot actual vs fitted
+ggplot(data = as.data.frame(dat), mapping = aes(x = actual, y = fitted)) +
+  geom_jitter() + 
+  labs(title = "Actual vs Fitted Values of Linear Model", 
+       x = "Actual", y = "Fitted") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+The Fitted vs Actual plot seems to put heavy emphasis on continent, likely because GDP per-capita is only a strong determiner of life expectancy among wealthy nations. This is probably why the fitted values form flat layers, as the model is mostly predicting based on continent when GDP per-capita is low. When GDP per-capita is higher, it influences the model more, creating a less-flat shape of the graph. This may indicate that the model is not as strong when predicting life expectancy for low GDP per-capita nations, and that using a higher order polynomial for GDP per-capita may create a better fit.
+
+### my_knn_cv
+
+This function predicts a category using k-nearest neighbor and performs k-fold cross validation. It uses parameters: `train`, the explanatory variables from training data. `cl`, the response variables. `k_nn`, an integer representing the number of nearest neighbors. And `k_cv`, an integer for the number of folds in the cross-validation. It returns a list with `class`, a factor of the predicted response variables, and `cv_err`, a numeric representing the CV error.
+
+Here, we will use `my_knn_cv` on the `my_penguins` data, using `bill_length_mm`, `bill_depth_mm`, `flipper_length_mm`, and `body_mass_g` to predict `species`. We will investigate the best `k_nn` from 1 to 10, using `k_cv` = 5.
+
+```{r}
+# get training and output data
+train <- my_penguins[c("bill_length_mm", 
+                    "bill_depth_mm", 
+                    "flipper_length_mm", 
+                    "body_mass_g",
+                    "species")] %>%
+  na.omit()
+cl <- train$species
+train <- train[!(names(train) %in% "species")]
+CV_error <- c(rep(NA, 10))
+training_error <- c(rep(NA, 10))
+for (k_nn in 1:10) {
+  # perform knn and cross validation
+  output <- my_knn_cv(train, cl, k_nn = k_nn, k_cv = 5)
+  # record the cross-validation err
+  CV_error[k_nn] <- output$cv_err
+  # record the training error
+  training_err <- sum(output$class != cl) / length(cl)
+  training_error[k_nn] <- training_err
+}
+k_nn <- c(1:10)
+cbind(k_nn, training_error, CV_error)
+
+```
+
+Looking at the data, we see that the training error is lowest with `k_nn` = 1, meaning that the best model using
+the training data would be when `k_nn` = 1. In practice, we would use the `k_nn` with the lowest cross-validation error, which in this case is also `k_nn` = 1. We would use the lowest cross-validation error to guide our decision, since the training data is fitted for itself and the best-fitting model may overfit. As a result, we use cross-validation misclassification error to decide which model to use. In k-fold cross validation, the data is divided into k folds where a fold is used as the test set, with the other folds being the training data. This process is repeated for all folds. The errors of each fold are averaged, which yields the CV error. This lets us choose a model based on misclassification error without being too worried about overfitting.
+
+### my_rf_cv
+
+This function performs random forest k-fold cross-validation on `my_penguins`, with `bill_length_mm`, `bill_depth_mm`, and `flipper_length_mm` predicting `body_mass_g`. The following plots the Mean Squared Error of 30 Random Forest Simulations for each k-fold of 2, 5, 10.
+
+```{r}
+# create empty vectors
+MSE <- c(rep(NA, 90))
+
+j = 0
+for (k in c(2, 5, 10)) {
+  for (i in c(1:30)) {
+    # calculate MSE for random forest
+    MSE[j + i] <- my_rf_cv(k)
+  }
+  j = j + 30
+}
+# track the group
+rf_group <- c(rep(2, 30), rep(5, 30), rep(10, 30))
+rf_group <- as.factor(rf_group)
+rf_results <- data.frame(k = rf_group, MSE = MSE)
+
+# plot the box plot of the errors
+ggplot(data = rf_results, mapping = aes(x = k, y = MSE)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of MSE for 30 Random Forest Simulations per k-fold") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+We can also find the mean and standard deviation of these k-fold groups.
+
+```{r}
+# create matrix
+rf_stat <- matrix(nrow = 3, ncol = 2)
+colnames(rf_stat) <- c("mean", "Sd. dev")
+rownames(rf_stat) <- as.character(c(2, 5, 10))
+for (i in c(2, 5, 10)) {
+  # filter by k group
+  dat <- subset(rf_results, k == i)
+  # get the mean
+  rf_stat[as.character(i) ,"mean"] <- mean(dat$MSE)
+  # get st dev
+  rf_stat[as.character(i) ,"Sd. dev"] <- sd(dat$MSE)
+}
+rf_stats <- as.table(rf_stat)
+rf_stats
+```
+
+Based on the results, we can see that the mean cross-validation errors are similar across all k, but more variable when k is lower. For the means, the error is slightly higher among lower k-values, likely because there's less training data with less k-folds, but this difference isn't significant. However, the standard deviation is much higher with lower k, as there are less Mean Squared Errors to average when k is low, leading to more variance in the data.
+
